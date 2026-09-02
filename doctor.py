@@ -1,71 +1,84 @@
+"""Doctor's voice: text-to-speech with ElevenLabs and automatic gTTS fallback."""
+
+import logging
 import os
-import elevenlabs
-import subprocess       #will help interact with CLI
-import platform         #to check which platform its running on
-from gtts import gTTS
-from elevenlabs.client import ElevenLabs
+import tempfile
+import threading
+
 from dotenv import load_dotenv
+from elevenlabs import save
+from elevenlabs.client import ElevenLabs
+from gtts import gTTS
 
 load_dotenv()
 
-def text_to_speech_old(input_text,output_filepath):
-    language = "en"
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
-    audioobj = gTTS(
-        text=input_text,
-        lang= language,
-        slow=False
-    )
-    audioobj.save(output_filepath)
+VOICE_ID = "EXAVITQu4vr4xnSDxMaL"
+TTS_MODEL = "eleven_turbo_v2"
+OUTPUT_FORMAT = "mp3_22050_32"
+REQUEST_TIMEOUT_SECONDS = 60
 
-input_text = "HI this is user!"
-#text_to_speech_old(input_text=input_text,output_filepath="gtts_testing.mp3")
+_client = None
+_client_lock = threading.Lock()
 
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
-def text_to_speech_labs_old(input_text,output_filepath):
-    client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
-    audio = client.generate(
-        text= input_text,
-        voice = "EXAVITQu4vr4xnSDxMaL",
-        output_format= "mp3_22050_32",
-        model= "eleven_turbo_v2"
-    )
-    elevenlabs.save(audio,output_filepath)
+def _get_client():
+    """Lazily create a single ElevenLabs client, reused across requests."""
+    global _client
+    with _client_lock:
+        if _client is None:
+            api_key = os.environ.get("ELEVENLABS_API_KEY")
+            if not api_key:
+                return None
+            _client = ElevenLabs(api_key=api_key)
+        return _client
 
-#text_to_speech_labs_old(input_text,output_filepath="elevenlabs_testing.mp3")
 
-#NEW
-def text_to_speech_with_gtts(input_text, output_filepath):
-    language = "en"
-    audioobj = gTTS(text=input_text, lang=language, slow=False)
-    audioobj.save(output_filepath)
+def _new_audio_path():
+    """Unique temp file path per request — safe for concurrent users."""
+    handle = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+    handle.close()
+    return handle.name
+
+
+def text_to_speech(input_text):
+    """Synthesize speech from text and return the audio filepath.
+
+    Primary: ElevenLabs. Falls back to gTTS on any failure (quota, rate
+    limit, missing key). Returns None only if both engines fail, so the
+    text response can still be shown without crashing the request.
+    """
+    if not input_text:
+        logging.warning("No text provided for speech synthesis.")
+        return None
+
+    output_filepath = _new_audio_path()
+
+    client = _get_client()
+    if client is not None:
+        try:
+            audio = client.text_to_speech.convert(
+                text=input_text,
+                voice_id=VOICE_ID,
+                model_id=TTS_MODEL,
+                output_format=OUTPUT_FORMAT,
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
+            save(audio, output_filepath)
+            logging.info("ElevenLabs voice generated.")
+            return output_filepath
+        except Exception as e:
+            logging.warning(
+                "ElevenLabs failed (%s), falling back to gTTS.", e
+            )
+
     try:
-        subprocess.run(
-            ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', output_filepath],
-            check=True
-        )
+        gTTS(text=input_text, lang="en", slow=False).save(output_filepath)
+        logging.info("gTTS voice generated.")
+        return output_filepath
     except Exception as e:
-        print(f"An error occurred while trying to play the audio: {e}")
-
-input_text="Hi this is Ai user, autoplay testing!"
-#text_to_speech_with_gtts(input_text=input_text, output_filepath="gtts_testing_autoplay.mp3")
-
-def text_to_speech_with_elevenlabs(input_text, output_filepath):
-    client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
-    audio = client.generate(
-        text=input_text,
-        voice="EXAVITQu4vr4xnSDxMaL",
-        output_format="mp3_22050_32",
-        model="eleven_turbo_v2"
-    )
-    elevenlabs.save(audio, output_filepath)
-    try:
-        subprocess.run(
-            ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', output_filepath],
-            check=True
-        )
-    except Exception as e:
-        print(f"An error occurred while trying to play the audio: {e}")
-
-#text_to_speech_with_elevenlabs(input_text=input_text, output_filepath="elevenlabs_testing_autoplay.mp3")
+        logging.error("Text-to-speech failed entirely: %s", e)
+        return None

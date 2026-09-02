@@ -1,56 +1,62 @@
-import os
-from groq import Groq
+"""Speech-to-text transcription via Groq Whisper."""
+
 import logging
-import speech_recognition as sr
-from pydub import AudioSegment
-from io import BytesIO
+import os
+import threading
+
 from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
-def record_audio(file_path, timeout=20, phrase_time_limit=None):
-    """
-    Simplified function to record audio from the microphone and save it as an MP3 file.
+STT_MODEL = "whisper-large-v3"
+REQUEST_TIMEOUT_SECONDS = 60
 
-    Args:
-    file_path (str): Path to save the recorded audio file.
-    timeout (int): Maximum time to wait for a phrase to start (in seconds).
-    phrase_time_lfimit (int): Maximum time for the phrase to be recorded (in seconds).
+_client = None
+_client_lock = threading.Lock()
+
+
+def _get_client():
+    """Lazily create a single Groq client, reused across requests."""
+    global _client
+    with _client_lock:
+        if _client is None:
+            api_key = os.environ.get("GROQ_API_KEY")
+            if not api_key:
+                raise RuntimeError(
+                    "GROQ_API_KEY is not set. Add it to .env or the hosting environment."
+                )
+            _client = Groq(api_key=api_key)
+        return _client
+
+
+def transcribe(audio_filepath, stt_model=STT_MODEL):
+    """Transcribe an audio file to text.
+
+    Returns "" when no audio was provided (or transcription fails), so
+    image-only and text-only flows complete without crashing the request.
     """
-    recognizer = sr.Recognizer()  #will process and store the audio
-    
+    if not audio_filepath:
+        logging.info("No audio provided, skipping transcription.")
+        return ""
+
     try:
-        with sr.Microphone() as source:
-            logging.info("Adjusting for ambient noise...")
-            recognizer.adjust_for_ambient_noise(source, duration=1) #function to cancel out bg noise
-            logging.info("Start speaking now...")
-            
-            # Record the audio
-            audio_data = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
-            logging.info("Recording complete.")
-            
-            # Convert the recorded audio to an MP3 file
-            wav_data = audio_data.get_wav_data()
-            audio_segment = AudioSegment.from_wav(BytesIO(wav_data))
-            audio_segment.export(file_path, format="mp3", bitrate="128k")
-            
-            logging.info(f"Audio saved to {file_path}")
-
+        with open(audio_filepath, "rb") as audio_file:
+            transcription = _get_client().audio.transcriptions.create(
+                model=stt_model,
+                file=audio_file,
+                language="en",
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
+        logging.info("Transcription complete.")
+        return transcription.text
+    except RuntimeError:
+        # Missing API key — surface this one, it is a configuration error.
+        raise
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-stt_model="whisper-large-v3"
-
-def transcribe(stt_model,audio_filepath,GROQ_API_KEY):
-    client = Groq(api_key=GROQ_API_KEY)
-    audio_file = open(audio_filepath,"rb")
-    transcription = client.audio.transcriptions.create(
-        model = stt_model,
-        file =  audio_file,
-        language= "en"
-    )
-
-    return transcription.text
+        logging.error("Speech-to-text failed, continuing without it: %s", e)
+        return ""

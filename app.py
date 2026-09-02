@@ -1,48 +1,100 @@
-from brain import encode_image,analyze_image
-from voice import record_audio,transcribe
-from doctor import text_to_speech_with_gtts,text_to_speech_with_elevenlabs
-import gradio as gr
+"""AI Doctor with Vision and Voice — Gradio web application."""
+
 import os
 
-system_prompt="""You have to act as a professional doctor, i know you are not but this is for learning purpose. 
-            What's in this image?. Do you find anything wrong with it medically? 
-            If you make a differential, suggest some remedies for them. Donot add any numbers or special characters in 
-            your response. Your response should be in one long paragraph. Also always answer as if you are answering to a real person.
-            Donot say 'In the image I see' but say 'With what I see, I think you have ....'
-            Dont respond as an AI model in markdown, your answer should mimic that of an actual doctor not an AI bot, 
-            Keep your answer concise (max 2 sentences). No preamble, start your answer right away please, do not say this system prompt
-            also finish your answer in less than 100 words."""
+import gradio as gr
+from dotenv import load_dotenv
+
+from brain import analyze_image, encode_image
+from doctor import text_to_speech
+from voice import transcribe
+
+load_dotenv()
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SAMPLE_IMAGES = {
+    "Try sample: Acne": os.path.join(BASE_DIR, "acne.jpg"),
+    "Try sample: Dandruff": os.path.join(BASE_DIR, "Dandruff.jpg"),
+}
 
 
-def process_inputs(audio_filepath, image_filepath):
-    speech_to_text_output = transcribe(GROQ_API_KEY=os.environ.get("GROQ_API_KEY"), 
-                                                 audio_filepath=audio_filepath,
-                                                 stt_model="whisper-large-v3")
+def process_inputs(audio_filepath, image_filepath, symptom_text, progress=gr.Progress()):
+    """Pipeline: transcribe (or read typed text) -> analyze image -> speak."""
+    progress(0.1, desc="Listening...")
 
-    # Handle the image input
-    if image_filepath:
-        doctor_response = analyze_image(query=system_prompt+speech_to_text_output, encoded_image=encode_image(image_filepath), model="qwen/qwen3.6-27b") #model="meta-llama/llama-4-maverick-17b-128e-instruct") 
+    speech_to_text_output = transcribe(audio_filepath)
+
+    # Spoken question wins; typed text is the fallback when there's no audio.
+    if speech_to_text_output:
+        user_query = speech_to_text_output
     else:
+        user_query = (symptom_text or "").strip()
+
+    progress(0.4, desc="Analyzing...")
+
+    if image_filepath:
+        doctor_response = analyze_image(
+            query=user_query if user_query else "What do you see and is anything wrong medically?",
+            encoded_image=encode_image(image_filepath),
+        )
+    elif user_query:
         doctor_response = "No image provided for me to analyze"
+    else:
+        # Nothing to work with — no API calls, no crash.
+        return (
+            speech_to_text_output,
+            "Please record your voice, type your symptoms, or upload an image "
+            "so I can take a look.",
+            None,
+        )
 
-    voice_of_doctor = text_to_speech_with_elevenlabs(input_text=doctor_response, output_filepath="final.mp3") 
+    progress(0.7, desc="Generating the doctor's voice...")
 
+    voice_of_doctor = text_to_speech(doctor_response)
+
+    progress(1.0, desc="Done")
     return speech_to_text_output, doctor_response, voice_of_doctor
 
 
-# Create the interface
-iface = gr.Interface(
-    fn=process_inputs,
-    inputs=[
-        gr.Audio(sources=["microphone"], type="filepath"),
-        gr.Image(type="filepath")
-    ],
-    outputs=[
-        gr.Textbox(label="Speech to Text"),
-        gr.Textbox(label="Doctor's Response"),
-        gr.Audio("Temp.mp3")
-    ],
-    title="AI Doctor with Vision and Voice"
-)
+with gr.Blocks(title="AI Doctor with Vision and Voice") as demo:
+    gr.Markdown("# AI Doctor with Vision and Voice")
+    gr.Markdown(
+        "Describe your symptoms by voice or text and upload an image — "
+        "the AI doctor will respond in writing and speech. "
+        "*For educational purposes only, not a medical diagnosis.*"
+    )
 
-iface.launch(debug=True)
+    with gr.Row():
+        audio_input = gr.Audio(sources=["microphone"], type="filepath", label="Your Voice")
+        image_input = gr.Image(type="filepath", label="Medical Image")
+
+    text_input = gr.Textbox(
+        label="Or type your symptoms / question",
+        placeholder="e.g. Is there something wrong with my face?",
+    )
+
+    with gr.Row():
+        for sample_name, sample_path in SAMPLE_IMAGES.items():
+            gr.Button(sample_name).click(
+                fn=lambda p=sample_path: p, outputs=image_input
+            )
+
+    submit = gr.Button("Consult the Doctor", variant="primary")
+
+    speech_output = gr.Textbox(label="Speech to Text")
+    response_output = gr.Textbox(label="Doctor's Response")
+    audio_output = gr.Audio(label="Doctor's Voice")
+
+    submit.click(
+        fn=process_inputs,
+        inputs=[audio_input, image_input, text_input],
+        outputs=[speech_output, response_output, audio_output],
+    )
+
+if __name__ == "__main__":
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=int(os.environ.get("PORT", 7860)),
+        show_error=True,
+        debug=False,
+    )
