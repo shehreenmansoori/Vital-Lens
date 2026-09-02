@@ -18,11 +18,34 @@ SAMPLE_IMAGES = {
 }
 
 
-def process_inputs(audio_filepath, image_filepath, symptom_text, progress=gr.Progress()):
-    """Pipeline: transcribe (or read typed text) -> analyze image -> speak."""
+def process_inputs(
+    audio_filepath, image_filepath, symptom_text, groq_key, eleven_key,
+    progress=gr.Progress(),
+):
+    """Pipeline: transcribe (or read typed text) -> analyze image -> speak.
+
+    Keys typed into the API Settings panel take priority; blank fields
+    fall back to the server environment.
+    """
+    groq_key = (groq_key or "").strip()
+    eleven_key = (eleven_key or "").strip()
+
+    # Any audio or image needs Groq (STT and/or vision) — check before
+    # calling out so a missing key is a friendly message, not an error.
+    if (audio_filepath or image_filepath) and not (
+        groq_key or os.environ.get("GROQ_API_KEY")
+    ):
+        return (
+            "",
+            "I'm missing a Groq API key. Open **API Settings** below, paste "
+            "your own key (free at console.groq.com/keys), and try again — "
+            "or ask the host to set one on the server.",
+            None,
+        )
+
     progress(0.1, desc="Listening...")
 
-    speech_to_text_output = transcribe(audio_filepath)
+    speech_to_text_output = transcribe(audio_filepath, groq_api_key=groq_key)
 
     # Spoken question wins; typed text is the fallback when there's no audio.
     if speech_to_text_output:
@@ -36,6 +59,7 @@ def process_inputs(audio_filepath, image_filepath, symptom_text, progress=gr.Pro
         doctor_response = analyze_image(
             query=user_query if user_query else "What do you see and is anything wrong medically?",
             encoded_image=encode_image(image_filepath),
+            groq_api_key=groq_key,
         )
     elif user_query:
         doctor_response = "No image provided for me to analyze"
@@ -50,7 +74,9 @@ def process_inputs(audio_filepath, image_filepath, symptom_text, progress=gr.Pro
 
     progress(0.7, desc="Generating the doctor's voice...")
 
-    voice_of_doctor = text_to_speech(doctor_response)
+    voice_of_doctor = text_to_speech(
+        doctor_response, elevenlabs_api_key=eleven_key
+    )
 
     progress(1.0, desc="Done")
     return speech_to_text_output, doctor_response, voice_of_doctor
@@ -85,9 +111,21 @@ with gr.Blocks(title="AI Doctor with Vision and Voice") as demo:
     response_output = gr.Textbox(label="Doctor's Response")
     audio_output = gr.Audio(label="Doctor's Voice")
 
+    with gr.Accordion("API Settings (optional — bring your own key)", open=False):
+        groq_key_input = gr.Textbox(
+            type="password",
+            label="Groq API Key",
+            placeholder="gsk_... (leave blank to use the server key)",
+        )
+        eleven_key_input = gr.Textbox(
+            type="password",
+            label="ElevenLabs API Key (optional)",
+            placeholder="Leave blank to use the server key or the free gTTS voice",
+        )
+
     submit.click(
         fn=process_inputs,
-        inputs=[audio_input, image_input, text_input],
+        inputs=[audio_input, image_input, text_input, groq_key_input, eleven_key_input],
         outputs=[speech_output, response_output, audio_output],
     )
 

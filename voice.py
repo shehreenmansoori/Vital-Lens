@@ -20,21 +20,32 @@ _client = None
 _client_lock = threading.Lock()
 
 
-def _get_client():
-    """Lazily create a single Groq client, reused across requests."""
+def _get_client(api_key=None):
+    """Resolve the Groq client.
+
+    A user-supplied key (bring-your-own-key) returns a fresh, uncached
+    client so concurrent requests with different keys never share state;
+    without one, a single client built from the server environment is
+    created once and reused across requests.
+    """
+    api_key = (api_key or "").strip()
+    if api_key:
+        return Groq(api_key=api_key)
+
     global _client
     with _client_lock:
         if _client is None:
-            api_key = os.environ.get("GROQ_API_KEY")
-            if not api_key:
+            env_key = os.environ.get("GROQ_API_KEY")
+            if not env_key:
                 raise RuntimeError(
-                    "GROQ_API_KEY is not set. Add it to .env or the hosting environment."
+                    "GROQ_API_KEY is not set. Add it to .env, the hosting "
+                    "environment, or the API Settings panel in the app."
                 )
-            _client = Groq(api_key=api_key)
+            _client = Groq(api_key=env_key)
         return _client
 
 
-def transcribe(audio_filepath, stt_model=STT_MODEL):
+def transcribe(audio_filepath, stt_model=STT_MODEL, groq_api_key=None):
     """Transcribe an audio file to text.
 
     Returns "" when no audio was provided (or transcription fails), so
@@ -46,7 +57,7 @@ def transcribe(audio_filepath, stt_model=STT_MODEL):
 
     try:
         with open(audio_filepath, "rb") as audio_file:
-            transcription = _get_client().audio.transcriptions.create(
+            transcription = _get_client(groq_api_key).audio.transcriptions.create(
                 model=stt_model,
                 file=audio_file,
                 language="en",
