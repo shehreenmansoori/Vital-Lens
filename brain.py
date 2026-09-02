@@ -26,26 +26,16 @@ _client = None
 _client_lock = threading.Lock()
 
 
-def _get_client(api_key=None):
-    """Resolve the Groq client.
-
-    A user-supplied key (bring-your-own-key) returns a fresh, uncached
-    client so concurrent requests with different keys never share state;
-    without one, a single client built from the server environment is
-    created once and reused across requests.
-    """
-    api_key = (api_key or "").strip()
-    if api_key:
-        return Groq(api_key=api_key)
-
+def _get_client():
+    """Return the shared Groq client, built once from the server environment."""
     global _client
     with _client_lock:
         if _client is None:
             env_key = os.environ.get("GROQ_API_KEY")
             if not env_key:
                 raise RuntimeError(
-                    "GROQ_API_KEY is not set. Add it to .env, the hosting "
-                    "environment, or the API Settings panel in the app."
+                    "GROQ_API_KEY is not set. Add it to .env or the hosting "
+                    "environment."
                 )
             _client = Groq(api_key=env_key)
         return _client
@@ -65,7 +55,7 @@ def encode_image(image_path):
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
-def analyze_image(query, encoded_image, model=VISION_MODEL, groq_api_key=None):
+def analyze_image(query, encoded_image, model=VISION_MODEL):
     """Send the user's symptoms/question plus the image to the vision model."""
     messages = [
         {
@@ -86,7 +76,7 @@ def analyze_image(query, encoded_image, model=VISION_MODEL, groq_api_key=None):
         },
     ]
 
-    chat_completion = _get_client(groq_api_key).chat.completions.create(
+    chat_completion = _get_client().chat.completions.create(
         messages=messages,
         model=model,
         temperature=0.3,

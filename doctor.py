@@ -25,18 +25,9 @@ _client = None
 _client_lock = threading.Lock()
 
 
-def _get_client(api_key=None):
-    """Resolve the ElevenLabs client.
-
-    A user-supplied key (bring-your-own-key) returns a fresh, uncached
-    client; without one, a single client built from the server
-    environment is created once and reused. Returns None when no key is
-    available from either source, so gTTS takes over.
-    """
-    api_key = (api_key or "").strip()
-    if api_key:
-        return ElevenLabs(api_key=api_key)
-
+def _get_client():
+    """Return the shared ElevenLabs client, built once from the server
+    environment. Returns None when no key is available, so gTTS takes over."""
     global _client
     with _client_lock:
         if _client is None:
@@ -54,11 +45,10 @@ def _new_audio_path():
     return handle.name
 
 
-def text_to_speech(input_text, elevenlabs_api_key=None):
+def text_to_speech(input_text):
     """Synthesize speech from text and return the audio filepath.
 
-    Primary: ElevenLabs (a user-supplied key takes priority over the
-    server environment). Falls back to gTTS on any failure (quota, rate
+    Primary: ElevenLabs. Falls back to gTTS on any failure (quota, rate
     limit, missing key). Returns None only if both engines fail, so the
     text response can still be shown without crashing the request.
     """
@@ -68,7 +58,7 @@ def text_to_speech(input_text, elevenlabs_api_key=None):
 
     output_filepath = _new_audio_path()
 
-    client = _get_client(elevenlabs_api_key)
+    client = _get_client()
     if client is not None:
         try:
             audio = client.text_to_speech.convert(
