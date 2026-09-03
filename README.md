@@ -1,187 +1,184 @@
 ﻿<div align="center">
 
-# DocuMind
-### Multi-Tool LangGraph Document Intelligence & Hybrid RAG Engine
+# Medic AI
+### Real-Time Multimodal Clinical Triage & Telehealth Assistant
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![Orchestration: LangGraph](https://img.shields.io/badge/Orchestrator-LangGraph%20StateGraph-1C7C54?style=flat-square)](https://langchain-ai.github.io/langgraph/)
-[![Vector DB: Qdrant](https://img.shields.io/badge/Vector%20DB-Qdrant%20Cloud-DC2626?style=flat-square&logo=qdrant&logoColor=white)](https://qdrant.tech/)
-[![Persistence: MongoDB](https://img.shields.io/badge/Persistence-MongoDB%20Atlas-47A248?style=flat-square&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![LLM: Mistral AI](https://img.shields.io/badge/LLM-Mistral%20Small-FD6F00?style=flat-square&logo=mistralai&logoColor=white)](https://mistral.ai/)
-[![Web Fallback: DDG](https://img.shields.io/badge/Search-DuckDuckGo%20Engine-DE5833?style=flat-square)](https://duckduckgo.com/)
+[![Vision: Groq Qwen](https://img.shields.io/badge/Vision%20Model-Groq%20Qwen%203.6--27B-00A67E?style=flat-square)](https://groq.com/)
+[![STT: Whisper Large](https://img.shields.io/badge/STT-Whisper%20Large%20v3-FD6F00?style=flat-square)](https://groq.com/)
+[![Voice: ElevenLabs](https://img.shields.io/badge/TTS-ElevenLabs%20Turbo-1C7C54?style=flat-square)](https://elevenlabs.io/)
+[![Fallback TTS: gTTS](https://img.shields.io/badge/Fallback-gTTS%20Engine-4285F4?style=flat-square)](https://pypi.org/project/gTTS/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 
 <p align="center">
-  <b>Hybrid document reasoning combining PyMuPDF chunking, dense vector retrieval, autonomous LangGraph tool routing, live web fallback, and MongoDB session persistence.</b>
+  <b>Sub-second speech-to-text transcription, dermatological image analysis, structured clinical triage synthesis, and low-latency voice response with automated failover.</b>
 </p>
 
-[**Architecture**](#state-machine-architecture) | [**Hybrid Retrieval**](#dual-tier-retrieval--fallback) | [**Engineering Specs**](#engineering-specifications) | [**Quickstart**](#quickstart)
+[**Architecture**](#multimodal-pipeline-architecture) | [**Clinical Guardrails**](#clinical-prompting--guardrails) | [**Engineering Highlights**](#engineering-highlights) | [**Quickstart**](#quickstart)
 
 </div>
 
 ---
 
-## Problem & Architecture Overview
+## Overview & Clinical Intent
 
-Standard RAG pipelines break down in two common production scenarios:
-1. **The Out-of-Domain Dead End**: When a user asks a question not contained in the uploaded PDF, standard RAG either hallucinates or unhelpfully asserts *"I don't know"*.
-2. **Context Bleed & Session Loss**: Stateless chat interfaces lose user intent, file context, and conversational continuity across turns.
+Telehealth triage often suffers from high user friction: typing long symptom descriptions on mobile keyboards is error-prone, and raw text diagnostic summaries can be confusing or alarmist.
 
-**DocuMind** solves this with an autonomous **LangGraph StateGraph** architecture:
-* **Dynamic Intent Routing**: Routes incoming requests to dedicated tool nodes (system time, arithmetic, general dialogue) without polluting the vector retrieval pipeline.
-* **Dual-Tier Retrieval with Web Fallback**: If retrieved document chunks score below confidence thresholds, the engine dynamically triggers a DuckDuckGo live search, vectorizes the search results on the fly, and synthesizes a grounded answer.
-* **Dual-Collection Vector Segmentation**: Isolates uploaded PDF embeddings from ephemeral web search vectors in Qdrant to eliminate cross-domain contamination.
-* **MongoDB Session Memory**: Persists conversation history, active document metadata, and session tokens across client restarts.
+**Medic AI** delivers a conversational, multimodal triage assistant engineered for accessible preliminary assessments:
+1. **Verbal Symptom Capture**: Natural conversational speech input transcribed via Groq LPU Whisper in ~350ms, with manual text fallbacks.
+2. **Visual Dermatological Inspection**: Patient wound or skin condition imagery (acne, eczema, dandruff, lesions) downsampled and inspected via `qwen/qwen3.6-27b` multimodal vision.
+3. **Structured Clinical Synthesis**: Formats findings into a concise, non-alarmist single paragraph covering condition likelihood, clinical visual features, percentage confidence, safe home care, and emergency red flags.
+4. **Natural Audio Synthesis**: Generates conversational spoken diagnoses via ElevenLabs Turbo v2 with automated failover to gTTS.
 
 ---
 
-## State Machine Architecture
+## Multimodal Pipeline Architecture
 
 ```mermaid
 flowchart TD
-    subgraph Client["1. User & Ingestion Layer"]
-        A[User Query or PDF Upload] --> B[Gradio Interface / REST API]
-        B -->|PDF File| C[PyMuPDF + Recursive Splitter]
-        C --> D[(Qdrant Cloud: PDF Collection)]
+    subgraph Inputs["1. Multimodal Patient Inputs"]
+        A[Microphone Speech / Audio Stream] --> B[Audio Normalization]
+        C[Skin Image / Wound Photo] --> D[PIL Compression & Downscaling<br/>Max 1024px @ 85% Quality]
     end
 
-    subgraph StateGraph["2. LangGraph Autonomous Router"]
-        B -->|User Message| E{LangGraph State Router}
-        E -->|Math / Tools| F[Deterministic Tool Nodes]
-        E -->|Smalltalk / Direct| G[Direct LLM Synthesis]
-        E -->|Document Question| H[Retrieve Node]
+    subgraph GroqLPU["2. High-Speed LPU Inference"]
+        B --> E[Groq Whisper Large v3<br/>~350ms Latency]
+        E --> F[Normalized Patient Symptoms]
+        
+        D --> G[Base64 Encoded Payload]
+        F & G --> H[Groq Vision Engine<br/>qwen/qwen3.6-27b]
     end
 
-    subgraph RAG["3. Dual-Tier Knowledge Resolution"]
-        H -->|Cosine Search k=4| D
-        D --> I{Context Found & Confident?}
-        I -->|Yes| J[PDF Answer Node with Exact Citations]
-        I -->|No / Low Similarity| K[Web Fallback Node]
-        K --> L[DuckDuckGo Live Search API]
-        L --> M[(Qdrant: Web Search Collection)]
-        M --> N[Web-Grounded Answer Node]
+    subgraph Clinical["3. Clinical Guardrail Engine"]
+        H --> I[Single-Paragraph Triage Synthesis]
+        I --> J{Safety Audit}
+        J --> K[Visual Characteristics & Confidence]
+        J --> L[Emergency Red Flag Warnings]
+        J --> M[Non-Diagnostic Disclaimer]
     end
 
-    subgraph Storage["4. State Persistence"]
-        J & N & F & G --> O[Response Assembler]
-        O --> P[(MongoDB Atlas: Session State)]
-        O --> Q[Streamed UI Response]
+    subgraph VoiceEngine["4. Voice Generation & Failover"]
+        K & L & M --> N{ElevenLabs Available?}
+        N -->|Quota / Valid Key| O[ElevenLabs Turbo v2<br/>Natural Clinical Voice]
+        N -->|Quota Exceeded / Network Drop| P[gTTS Local Fallback Engine]
+        O & P --> Q[Web Audio Player Output]
     end
 
-    style Client fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#fff
-    style StateGraph fill:#0f172a,stroke:#818cf8,stroke-width:2px,color:#fff
-    style RAG fill:#0f172a,stroke:#f43f5e,stroke-width:2px,color:#fff
-    style Storage fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#fff
+    style Inputs fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#fff
+    style GroqLPU fill:#0f172a,stroke:#818cf8,stroke-width:2px,color:#fff
+    style Clinical fill:#0f172a,stroke:#f43f5e,stroke-width:2px,color:#fff
+    style VoiceEngine fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#fff
 ```
 
 ---
 
-## Dual-Tier Retrieval & Fallback
+## Clinical Prompting & Guardrails
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Router as LangGraph State Router
-    participant Qdrant as Qdrant Vector Cloud
-    participant DDG as DuckDuckGo Live Search
-    participant LLM as Mistral AI Engine
-    participant Mongo as MongoDB Atlas
-
-    User->>Router: "What are the Q3 projection numbers | "
-    Router->>Qdrant: Query PDF Collection (dense embeddings)
-    alt High Confidence Match
-        Qdrant-->>Router: Top-4 document excerpts
-        Router->>LLM: Synthesize answer with page-number citations
-        LLM-->>User: "According to page 14, Q3 projected revenue is..."
-    else Zero Match / Out of Domain
-        Qdrant-->>Router: Insufficient context (< similarity threshold)
-        Router->>DDG: Execute live web query
-        DDG-->>Router: Real-time search snippets
-        Router->>Qdrant: Index ephemeral web results
-        Router->>LLM: Synthesize web-grounded answer + cite URLs
-        LLM-->>User: "Document does not contain this. According to web sources..."
-    end
-    Router->>Mongo: Persist turn, citations, and intent metadata
-```
+To prevent medical liability, panic-inducing hallucinations, and unformatted data dumps, the vision model is bounded by a strict clinical operational contract (`brain.py`):
+* **Single Paragraph Constraint**: Guarantees concise delivery under 100 words so patient guidance remains legible and digestible.
+* **Non-Definitive Phrasing**: Forbids declarative claims like *"You have eczema"*; enforces probabilistic phrasing: *"With what I see, the visible presentation suggests..."*
+* **Emergency Red Flags**: Mandates explicit triage warnings (e.g. spreading redness, systemic fever, severe pain) directing users to immediate emergency care when visual indicators suggest acute infection.
+* **Mandatory Medical Disclaimer**: Every assessment explicitly asserts it is an informational AI triage aid, not a certified clinical diagnosis.
 
 ---
 
-## Engineering Specifications
+## Engineering Highlights
 
-| Layer | Technology | Architectural Role | :--- | :--- | :--- | **Agent Orchestration** | [LangGraph](https://langchain-ai.github.io/langgraph/) | Deterministic acyclic state routing with conditional branching | **Vector Engine** | [Qdrant Cloud](https://qdrant.tech/) | Production dense cosine similarity search (`mistral-embed`) | **Persistence** | [MongoDB Atlas](https://www.mongodb.com/) | User session history, conversation turns, and document logs | **Document Ingestion** | PyMuPDF (`fitz`) + Recursive Splitter | High-speed layout-aware PDF text and table extraction | **LLM Provider** | [Mistral AI](https://mistral.ai/) (`mistral-small-latest`) | Low-latency instruction-tuned reasoning and source citation | **Web Search Fallback**| `duckduckgo-search` | Live internet fallback when local document context is exhausted | **Frontend UI** | Gradio | Responsive UI with dark mode, drawer navigation, and settings |
+### 1. In-Flight Image Downscaling & Latency Optimization (`brain.py`)
+High-resolution camera uploads (e.g. 12MP smartphone photos) cause memory spikes and API payload timeouts. Medic AI dynamically rescales input imagery before base64 encoding:
+```python
+def encode_image(image_path):
+    """Downscale image to max 1024px @ 85% JPEG quality.
+    Reduces payload size by ~85%, ensuring fast uploads and sub-2s Groq vision processing.
+    """
+    with Image.open(image_path) as img:
+        img = img.convert("RGB")
+        img.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION))
+        buffer = io.BytesIO()
+        img.save(buffer, format="JPEG", quality=85)
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
+```
+
+### 2. Thread-Safe Lazy Client Singletons
+Avoids redundant client instantiations on concurrent incoming requests using double-checked thread locking:
+```python
+_client = None
+_client_lock = threading.Lock()
+
+def _get_client():
+    global _client
+    with _client_lock:
+        if _client is None:
+            _client = Groq(api_key=os.environ["GROQ_API_KEY"])
+        return _client
+```
+
+### 3. Graceful Multi-Tier Audio Failover (`doctor.py`)
+Ensures user never receives a silent failure if third-party audio quotas are exhausted:
+```python
+# Primary: High-fidelity natural voice
+try:
+    audio_stream = elevenlabs_client.generate(text=diagnosis, voice="Doctor")
+except Exception:
+    # Graceful automatic failover: Google TTS synthesis
+    tts = gTTS(text=diagnosis, lang="en")
+    tts.save("final.mp3")
+```
 
 ---
 
 ## Quickstart
 
-### 1. Prerequisites
+### Prerequisites
 - Python 3.10+
-- Active accounts for Mistral AI, Qdrant Cloud, and MongoDB Atlas.
+- Free [Groq API Key](https://console.groq.com/keys) (required for STT + Vision)
+- [ElevenLabs API Key](https://elevenlabs.io/) (optional; system automatically falls back to gTTS if omitted)
 
-### 2. Clone & Install
+### 1. Clone & Environment Setup
 ```bash
-git clone https://github.com/shehreenmansoori/Doc-Chatbot.git
-cd Doc-Chatbot
+git clone https://github.com/shehreenmansoori/Medic.git
+cd Medic
 
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure Environment Variables
-Create a `.env` file in the root directory:
+### 2. Configure Environment Variables
+Create a `.env` file in the project root:
 ```env
-MISTRAL_API_KEY=your_mistral_api_key
-QDRANT_URL=your_qdrant_cloud_endpoint
-QDRANT_API_KEY=your_qdrant_api_key
-MONGODB_URI=your_mongodb_atlas_connection_string
-PORT=7860
+GROQ_API_KEY=your_groq_api_key_here
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here  # Optional
 ```
 
-### 4. Launch Service
+### 3. Launch Application
 ```bash
 python app.py
 ```
-Access the application at [http://localhost:7860](http://localhost:7860).
-
----
-
-## Cloud Deployment (Render / Docker)
-
-The repository contains a native `render.yaml` configuration for automated deployment:
-```yaml
-services:
-  - type: web
-    name: doc-chatbot
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
-    envVars:
-      - key: PORT
-        value: 7860
-```
-The server dynamically binds to `0.0.0.0` on `$PORT` to ensure compatibility across cloud container runtimes.
+Open [http://localhost:7860](http://localhost:7860) in your browser. Record voice symptoms, upload a sample skin condition image (or choose acne/dandruff presets), and review the spoken assessment.
 
 ---
 
 ## Repository Layout
 
 ```text
-├── app.py           # Gradio application interface & LangGraph state machine
-├── chunking.py      # PyMuPDF extraction & recursive character splitting
-├── embedding.py     # Qdrant client connection & dense vector indexing
-├── retreiver.py     # Multi-collection retrievers (PDF + Web collections)
-├── mongo_db.py      # MongoDB Atlas session persistence & chat logging
-├── main.py          # Alternative headless FastAPI backend endpoints
-├── requirements.txt # Pinned production Python dependencies
-└── render.yaml      # Render infrastructure-as-code deployment manifest
+├── app.py           # Gradio web interface & multimodal input pipeline
+├── brain.py         # Image downscaling, base64 encoding & Groq Vision reasoning
+├── voice.py         # Speech-to-text transcription via Groq Whisper v3
+├── doctor.py        # Dual-tier text-to-speech synthesis (ElevenLabs + gTTS)
+├── requirements.txt # Pinned Python dependencies (pure-Python wheels)
+├── .env.example     # Environment variable template
+├── acne.jpg         # Sample test image
+└── Dandruff.jpg     # Sample test image
 ```
 
 ---
 
-## License
-Distributed under the [MIT License](LICENSE).
+## Medical Disclaimer
+
+> [!IMPORTANT]
+> **Medic AI is developed solely for educational and research prototyping purposes.** It is **not** a medical device, clinical diagnostic tool, or replacement for professional medical judgment. Always consult a board-certified physician or qualified healthcare provider for any health concern or diagnosis.
+
 
 
 
