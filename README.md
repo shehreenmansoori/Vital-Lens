@@ -1,6 +1,6 @@
 ﻿<div align="center">
 
-# Medic AI
+# Vital-Lens
 ### Real-Time Multimodal Clinical Triage & Telehealth Assistant
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
@@ -136,8 +136,8 @@ except Exception:
 
 ### 1. Clone & Environment Setup
 ```bash
-git clone https://github.com/shehreenmansoori/Medic.git
-cd Medic
+git clone https://github.com/shehreenmansoori/Vital-Lens.git
+cd Vital-Lens
 
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
