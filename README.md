@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # Vital-Lens
 ### Real-Time Multimodal Clinical Triage & Telehealth Assistant
