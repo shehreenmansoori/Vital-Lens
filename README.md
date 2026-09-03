@@ -1,6 +1,6 @@
 ﻿<div align="center">
 
-# Medic AI
+# Vital-Lens
 ### Real-Time Multimodal Clinical Triage & Telehealth Assistant
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7?style=flat-square&logo=render&logoColor=black)](https://medic-t279.onrender.com/)
@@ -25,7 +25,7 @@
 
 Telehealth triage often suffers from high user friction: typing long symptom descriptions on mobile keyboards is error-prone, and raw text diagnostic summaries can be confusing or alarmist.
 
-**Medic AI** delivers a conversational, multimodal triage assistant engineered for accessible preliminary assessments:
+**Vital-Lens** delivers a conversational, multimodal triage assistant engineered for accessible preliminary assessments:
 1. **Verbal Symptom Capture**: Natural conversational speech input transcribed via Groq LPU Whisper in ~350ms, with manual text fallbacks.
 2. **Visual Dermatological Inspection**: Patient wound or skin condition imagery (acne, eczema, dandruff, lesions) downsampled and inspected via `qwen/qwen3.6-27b` multimodal vision.
 3. **Structured Clinical Synthesis**: Formats findings into a concise, non-alarmist single paragraph covering condition likelihood, clinical visual features, percentage confidence, safe home care, and emergency red flags.
@@ -86,7 +86,7 @@ To prevent medical liability, panic-inducing hallucinations, and unformatted dat
 ## Engineering Highlights
 
 ### 1. In-Flight Image Downscaling & Latency Optimization (`brain.py`)
-High-resolution camera uploads (e.g. 12MP smartphone photos) cause memory spikes and API payload timeouts. Medic AI dynamically rescales input imagery before base64 encoding:
+High-resolution camera uploads (e.g. 12MP smartphone photos) cause memory spikes and API payload timeouts. Vital-Lens dynamically rescales input imagery before base64 encoding:
 ```python
 def encode_image(image_path):
     """Downscale image to max 1024px @ 85% JPEG quality.
@@ -137,8 +137,8 @@ except Exception:
 
 ### 1. Clone & Environment Setup
 ```bash
-git clone https://github.com/shehreenmansoori/Medic.git
-cd Medic
+git clone https://github.com/shehreenmansoori/Vital-Lens.git
+cd Vital-Lens
 
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
@@ -178,7 +178,7 @@ Open [http://localhost:7860](http://localhost:7860) in your browser. Record voic
 ## Medical Disclaimer
 
 > [!IMPORTANT]
-> **Medic AI is developed solely for educational and research prototyping purposes.** It is **not** a medical device, clinical diagnostic tool, or replacement for professional medical judgment. Always consult a board-certified physician or qualified healthcare provider for any health concern or diagnosis.
+> **Vital-Lens is developed solely for educational and research prototyping purposes.** It is **not** a medical device, clinical diagnostic tool, or replacement for professional medical judgment. Always consult a board-certified physician or qualified healthcare provider for any health concern or diagnosis.
 
 
 
