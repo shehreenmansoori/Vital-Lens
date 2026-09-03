@@ -66,8 +66,9 @@ def process_inputs(audio_filepath, image_filepath, symptom_text, progress=gr.Pro
     return speech_to_text_output, doctor_response, voice_of_doctor
 
 
-with gr.Blocks(title="AI Doctor with Vision and Voice") as demo:
-    gr.Markdown("# AI Doctor with Vision and Voice")
+with gr.Blocks(title="Vital-Lens — Clinical Triage & Telehealth Assistant") as demo:
+    gr.Markdown("# Vital-Lens")
+    gr.Markdown("### Real-Time Multimodal Clinical Triage & Telehealth Assistant")
     gr.Markdown(
         "Describe your symptoms by voice or text and upload an image — "
         "the AI doctor will respond in writing and speech. "
