@@ -1,8 +1,9 @@
 ﻿<div align="center">
 
-# Vital-Lens
+# Medic AI
 ### Real-Time Multimodal Clinical Triage & Telehealth Assistant
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7?style=flat-square&logo=render&logoColor=black)](https://medic-t279.onrender.com/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Vision: Groq Qwen](https://img.shields.io/badge/Vision%20Model-Groq%20Qwen%203.6--27B-00A67E?style=flat-square)](https://groq.com/)
 [![STT: Whisper Large](https://img.shields.io/badge/STT-Whisper%20Large%20v3-FD6F00?style=flat-square)](https://groq.com/)
@@ -14,7 +15,7 @@
   <b>Sub-second speech-to-text transcription, dermatological image analysis, structured clinical triage synthesis, and low-latency voice response with automated failover.</b>
 </p>
 
-[**Architecture**](#multimodal-pipeline-architecture) | [**Clinical Guardrails**](#clinical-prompting--guardrails) | [**Engineering Highlights**](#engineering-highlights) | [**Quickstart**](#quickstart)
+[**Live Demo**](https://medic-t279.onrender.com/) | [**Architecture**](#multimodal-pipeline-architecture) | [**Clinical Guardrails**](#clinical-prompting--guardrails) | [**Engineering Highlights**](#engineering-highlights) | [**Quickstart**](#quickstart)
 
 </div>
 
@@ -136,8 +137,8 @@ except Exception:
 
 ### 1. Clone & Environment Setup
 ```bash
-git clone https://github.com/shehreenmansoori/Vital-Lens.git
-cd Vital-Lens
+git clone https://github.com/shehreenmansoori/Medic.git
+cd Medic
 
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
